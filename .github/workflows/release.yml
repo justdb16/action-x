@@ -12,10 +12,11 @@ jobs:
         platform: [ ubuntu-latest, macos-latest ]
     runs-on: ${{ matrix.platform }}
     steps:
-      - name: Clone upgrade repo
+      - name: Clone repo
         uses: actions/checkout@v3
         with:
           repository: devtoys-org/devtools
+          ref: main
           token: ${{ secrets.GIT_TOKEN }}
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -82,32 +83,35 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: binaries
-      - run: ls -R
-      - name: Upload app.json
-        uses: appleboy/scp-action@v0.1.4
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: root
-          port: 22
-          key: ${{ secrets.SSH_KEY }}
-          source: "app.json"
-          target: /www/wwwroot/update.devtools.unclezs.com
-      - name: Upload update files
-        uses: appleboy/scp-action@v0.1.4
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: root
-          port: 22
-          key: ${{ secrets.SSH_KEY }}
-          source: "build/bin/devtools-arm64,build/bin/devtools-amd64,build/bin/devtools-amd64.exe,build/bin/devtools-arm64.exe,build/bin/devtools-linux-amd64"
-          target: /www/wwwroot/update.devtools.unclezs.com/download
-          strip_components: 2
+#      - run: ls -R
+#      - name: Upload app.json
+#        uses: appleboy/scp-action@v0.1.4
+#        with:
+#          host: ${{ secrets.SSH_HOST }}
+#          username: root
+#          port: 22
+#          key: ${{ secrets.SSH_KEY }}
+#          source: "app.json"
+#          target: /www/wwwroot/update.devtools.unclezs.com
+#      - name: Upload update files
+#        uses: appleboy/scp-action@v0.1.4
+#        with:
+#          host: ${{ secrets.SSH_HOST }}
+#          username: root
+#          port: 22
+#          key: ${{ secrets.SSH_KEY }}
+#          source: "build/bin/devtools-arm64,build/bin/devtools-amd64,build/bin/devtools-amd64.exe,build/bin/devtools-arm64.exe,build/bin/devtools-linux-amd64"
+#          target: /www/wwwroot/update.devtools.unclezs.com/download
+#          strip_components: 2
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
+          token: ${{ secrets.GIT_TOKEN }}
           files: |
             ./build/bin/*
           body_path: ./publish/changelog.md
+          env:
+            GITHUB_REPOSITORY: devtoys-org/devtools
       - name: Delete binaries
         uses: geekyeggo/delete-artifact@v2
         with:
