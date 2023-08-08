@@ -1,0 +1,30 @@
+name: test
+
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: create test files
+        run: |
+          mkdir -p build/bin
+          touch build/bin/devtools-linux-amd64
+      - uses: actions/upload-artifact@v3
+        with:
+          name: my-artifact
+          path: |
+            build/bin/devtools-linux-amd64
+      - uses: actions/download-artifact@v2
+        with:
+          name: my-artifact
+      - run: ls -R
+      - name: Upload linux update binary
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: root
+          port: 22
+          key: ${{ secrets.SSH_KEY }}
+          source: "devtools-linux-amd64"
+          target: /www/wwwroot/update.devtools.unclezs.com/download

@@ -1,0 +1,110 @@
+name: package
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+jobs:
+  package:
+    strategy:
+      matrix:
+        platform: [ ubuntu-latest, macos-latest ]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+      - name: Setup nodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+      - name: Get Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      - name: Install macos and windows dependencies
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        run: |
+          brew install create-dmg
+          brew install nsis
+      - name: Install linux dependencies
+        if: matrix.platform == 'ubuntu-latest'
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install libgtk-3-0 libwebkit2gtk-4.0-dev gcc-aarch64-linux-gnu
+      - name: Update app.json
+        working-directory: publish
+        run: |
+          go run main.go --whats-new
+      - name: Build macos and windows app
+        if: matrix.platform == 'macos-latest'
+        run: |
+          make build-mac
+          make build-windows
+      - name: Build linux/amd64 app
+        if: matrix.platform == 'ubuntu-latest'
+        run: make build-linux
+      - name: Generate changelog
+        if: matrix.platform == 'ubuntu-latest'
+        working-directory: publish
+        run: |
+          go run main.go
+      - name: Upload macos binaries
+        uses: actions/upload-artifact@v3
+        if: matrix.platform == 'macos-latest'
+        with:
+          name: binaries
+          path: |
+            ./build/bin/*.dmg
+            ./build/bin/*.pkg
+            ./build/bin/*.exe
+            ./build/bin/devtools-arm64
+            ./build/bin/devtools-amd64
+            app.json
+      - name: Upload linux binaries
+        uses: actions/upload-artifact@v3
+        if: matrix.platform == 'ubuntu-latest'
+        with:
+          name: binaries
+          path: |
+            ./build/bin/*
+            ./publish/changelog.md
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: package
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: binaries
+      - run: ls -R
+      - name: Upload app.json
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: root
+          port: 22
+          key: ${{ secrets.SSH_KEY }}
+          source: "app.json"
+          target: /www/wwwroot/update.devtools.unclezs.com
+      - name: Upload update files
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: root
+          port: 22
+          key: ${{ secrets.SSH_KEY }}
+          source: "build/bin/devtools-arm64,build/bin/devtools-amd64,build/bin/devtools-amd64.exe,build/bin/devtools-arm64.exe,build/bin/devtools-linux-amd64"
+          target: /www/wwwroot/update.devtools.unclezs.com/download
+          strip_components: 2
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ./build/bin/*
+          body_path: ./publish/changelog.md
+      - name: Delete binaries
+        uses: geekyeggo/delete-artifact@v2
+        with:
+          name: binaries
