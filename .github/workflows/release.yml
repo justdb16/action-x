@@ -110,8 +110,8 @@ jobs:
           files: |
             ./build/bin/*
           body_path: ./publish/changelog.md
-          env:
-            GITHUB_REPOSITORY: devtoys-org/devtools
+        env:
+          GITHUB_REPOSITORY: devtoys-org/devtools
       - name: Delete binaries
         uses: geekyeggo/delete-artifact@v2
         with:
